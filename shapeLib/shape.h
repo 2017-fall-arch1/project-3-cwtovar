@@ -102,6 +102,17 @@ void abShapeGetBounds(const AbShape *s, const Vec2 *centerPos, Region *bounds);
  */
 int abShapeCheck(const AbShape *shape, const Vec2 *centerPos, const Vec2 *pixelLoc);
 
+/** A Triangle
+ */
+typedef struct AbTri_s{
+  void (*getBounds)(const struct AbTri_s *shape, const Vec2 *centerPos, Region *bounds);
+  int (*check)(const struct AbTri_s *shape, const Vec2 *centerPos, const Vec2 *pixelLoc);
+  int size;
+}AbTriangle;
+
+void abTriangleGetBounds(const AbTriangle *triangle, const Vec2 centerPos, Region *bounds);
+
+int abTriangleCheck(const AbTriangle *triangle, const Vec2 *centerPos, const Vec2 *pixelLoc);
 /** An AbShape Right Arrow with filled tip
  *
  *  size: width of the arrow.  Tip is a triangle with width=1/2 size.

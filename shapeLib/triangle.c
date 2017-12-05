@@ -4,11 +4,11 @@
  *  abRArrowCheck returns true if the right arrow includes the selected pixel
  */
 int 
-abRArrowCheck(const AbRArrow *arrow, const Vec2 *centerPos, const Vec2 *pixel)
+abTriangleCheck(const AbRArrow *triangle, const Vec2 *centerPos, const Vec2 *pixel)
 {
   Vec2 relPos;
   int row, col, within = 0;
-  int size = arrow->size;
+  int size = arrow->size;o
   int halfSize = size/2, quarterSize = halfSize/2;;
   vec2Sub(&relPos, pixel, centerPos); /* vector from center to pixel */
   row = relPos.axes[1]; col = -relPos.axes[0]; /* note that col is negated */
@@ -25,7 +25,7 @@ abRArrowCheck(const AbRArrow *arrow, const Vec2 *centerPos, const Vec2 *pixel)
  *  abRArrowGetBounds computes a right arrow's bounding box
  */
 void 
-abRArrowGetBounds(const AbRArrow *arrow, const Vec2 *centerPos, Region *bounds)
+abTriangleGetBounds(const AbRArrow *triangle, const Vec2 *centerPos, Region *bounds)
 {
   int size = arrow->size, halfSize = size / 2;
   bounds->topLeft.axes[0] = centerPos->axes[0] - size;

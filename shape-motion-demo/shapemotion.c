@@ -18,7 +18,7 @@
 
 
 AbRect rect10 = {abRectGetBounds, abRectCheck, {10,10}}; /**< 10x10 rectangle */
-AbRArrow rightArrow = {abRArrowGetBounds, abRArrowCheck, 30};
+AbRArrow rarrow = {abRArrowGetBounds, abRArrowCheck, 30};
 
 AbRectOutline fieldOutline = {	/* playing field */
   abRectOutlineGetBounds, abRectOutlineCheck,   
@@ -26,10 +26,10 @@ AbRectOutline fieldOutline = {	/* playing field */
 };
 
 Layer layer4 = {
-  (AbShape *)&rightArrow,
+  (AbShape *)&rarrow,
   {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
   {0,0}, {0,0},				    /* last & next pos */
-  COLOR_PINK,
+  COLOR_GREEN,
   0
 };
   
@@ -60,10 +60,10 @@ Layer layer1 = {		/**< Layer with a red square */
 };
 
 Layer layer0 = {		/**< Layer with an orange circle */
-  (AbShape *)&circle14,
+  (AbShape *)&circle8,
   {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
   {0,0}, {0,0},				    /* last & next pos */
-  COLOR_ORANGE,
+  COLOR_BROWN,
   &layer1,
 };
 
@@ -121,7 +121,7 @@ void movLayerDraw(MovLayer *movLayers, Layer *layers)
 
 
 
-//Region fence = {{10,30}, {SHORT_EDGE_PIXELS-10, LONG_EDGE_PIXELS-10}}; /**< Create a fence region */
+Region fence = {{10,30}, {SHORT_EDGE_PIXELS-10, LONG_EDGE_PIXELS-10}}; /**< Create a fence region */
 
 /** Advances a moving shape within a fence
  *  
@@ -178,8 +178,8 @@ void main()
 
   enableWDTInterrupts();      /**< enable periodic interrupt */
   or_sr(0x8);	              /**< GIE (enable interrupts) */
-
-
+  char currScore[] = "0";
+  
   for(;;) { 
     while (!redrawScreen) { /**< Pause CPU if screen doesn't need updating */
       P1OUT &= ~GREEN_LED;    /**< Green led off witHo CPU */
@@ -187,6 +187,8 @@ void main()
     }
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
     redrawScreen = 0;
+    drawString5x7(0,0, "Score: ", COLOR_ORANGE, bgColor);
+    drawString5x7(40,0,currScore, COLOR_ORANGE, bgColor);
     movLayerDraw(&ml0, &layer0);
   }
 }
