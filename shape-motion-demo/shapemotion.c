@@ -15,22 +15,42 @@
 #include <abCircle.h>
 
 #define GREEN_LED BIT6
+#define SW1 BIT0
+#define SW2 BIT1
+#define SW3 BIT2
+#define SW4 BIT3
+#define SWITCHES (SW1 | SW2 | SW3 | SW4)
 
 
-AbRect rect10 = {abRectGetBounds, abRectCheck, {10,10}}; /**< 10x10 rectangle */
-AbRArrow rarrow = {abRArrowGetBounds, abRArrowCheck, 30};
+
+AbRect rect10 = {abRectGetBounds, abRectCheck, {10,4}}; /**< 10x10 rectangle */
+AbRArrow rarrow = {abRArrowGetBounds, abRArrowCheck, 20};
+char scored = 0;
+char bounce = 0;
+char state = 0;
+char state_changed =0;
+
 
 AbRectOutline fieldOutline = {	/* playing field */
   abRectOutlineGetBounds, abRectOutlineCheck,   
   {screenWidth/2 - 10, screenHeight/2 - 10}
 };
 
+Layer fieldLayer = {		/* playing field as a layer */
+  (AbShape *) &fieldOutline,
+  {screenWidth/2, screenHeight/2},/**< center */
+  {0,0}, {0,0},				    /* last & next pos */
+  COLOR_BLACK,
+  0
+};
+
+
 Layer layer4 = {
   (AbShape *)&rarrow,
   {(screenWidth/2)+10, (screenHeight/2)+5}, /**< bit below & right of center */
   {0,0}, {0,0},				    /* last & next pos */
   COLOR_GREEN,
-  0
+  &fieldLayer,
 };
   
 
@@ -43,20 +63,12 @@ Layer layer3 = {		/**< Layer with an orange circle */
 };
 
 
-Layer fieldLayer = {		/* playing field as a layer */
-  (AbShape *) &fieldOutline,
-  {screenWidth/2, screenHeight/2},/**< center */
-  {0,0}, {0,0},				    /* last & next pos */
-  COLOR_BLACK,
-  &layer3
-};
-
 Layer layer1 = {		/**< Layer with a red square */
   (AbShape *)&rect10,
-  {screenWidth/2, screenHeight/2}, /**< center */
+  {screenWidth/2, screenHeight-17}, /**< center */
   {0,0}, {0,0},				    /* last & next pos */
   COLOR_RED,
-  &fieldLayer,
+  &layer3,
 };
 
 Layer layer0 = {		/**< Layer with an orange circle */
@@ -78,9 +90,11 @@ typedef struct MovLayer_s {
 } MovLayer;
 
 /* initial value of {0,0} will be overwritten */
-MovLayer ml3 = { &layer3, {1,1}, 0 }; /**< not all layers move */
-MovLayer ml1 = { &layer1, {1,2}, &ml3 }; 
-MovLayer ml0 = { &layer0, {2,1}, &ml1 }; 
+MovLayer ml2 = { &layer4, {1,2}, 0};
+MovLayer ml3 = { &layer3, {1,1}, &ml2 }; /**< not all layers move */
+MovLayer ml1 = { &layer1, {0,0}, &ml3 }; 
+MovLayer ml0 = { &layer0, {2,1}, &ml1 };
+
 
 void movLayerDraw(MovLayer *movLayers, Layer *layers)
 {
@@ -140,13 +154,44 @@ void mlAdvance(MovLayer *ml, Region *fence)
       if ((shapeBoundary.topLeft.axes[axis] < fence->topLeft.axes[axis]) ||
 	  (shapeBoundary.botRight.axes[axis] > fence->botRight.axes[axis]) ) {
 	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+	scored=1;
 	newPos.axes[axis] += (2*velocity);
       }	/**< if outside of fence */
+      if(abRectCheck(&(ml->layer->abShape), &(layer1.pos),
+		      &ml->layer->pos) && axis ==1){
+	//  bounce = 1;
+	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+	newPos.axes[axis] += (2*velocity);
+      }     
+      
     } /**< for axis */
     ml->layer->posNext = newPos;
   } /**< for ml */
 }
 
+void buzzer_init()
+{
+    /* 
+       Direct timer A output "TA0.1" to P2.6.  
+        According to table 21 from data sheet:
+          P2SEL2.6, P2SEL2.7, anmd P2SEL.7 must be zero
+          P2SEL.6 must be 1
+        Also: P2.6 direction must be output
+    */
+    timerAUpmode();		/* used to drive speaker */
+    P2SEL2 &= ~(BIT6 | BIT7);
+    P2SEL &= ~BIT7; 
+    P2SEL |= BIT6;
+    P2DIR = BIT6;		/* enable output to speaker (P2.6) */
+
+    buzzer_set_period(0);	/* start buzzing!!! */
+}
+ 
+void buzzer_set_period(short cycles)
+{
+  CCR0 = cycles; 
+  CCR1 = cycles >> 1;		/* one half cycle */
+}
 
 u_int bgColor = COLOR_BLUE;     /**< The background color */
 int redrawScreen = 1;           /**< Boolean for whether screen needs to be redrawn */
@@ -165,7 +210,9 @@ void main()
   configureClocks();
   lcd_init();
   shapeInit();
-  p2sw_init(1);
+  p2sw_init(15);
+  buzzer_init();
+ 
 
   shapeInit();
 
@@ -187,10 +234,48 @@ void main()
     }
     P1OUT |= GREEN_LED;       /**< Green led on when CPU on */
     redrawScreen = 0;
+    if (scored){
+      currScore[0]++;
+      scored=0;
+      // buzzer_set_period(7617);
+    }
+    if(bounce){
+      currScore[0]--;
+      bounce = 0;
+      // buzzer_set_period(5210);
+    }
+    if(state_changed){
+      if(state== 1){
+	ml1.velocity.axes[0] = -1;
+	ml1.velocity.axes[1] = 0;
+	//down = up = right = 0;
+	
+      }
+      else if(state == 2){
+	ml1.velocity.axes[1] = 1;
+	ml1.velocity.axes[0] = 0;
+	//left = up = right = 0;
+      }
+      else if(state ==3){
+	ml1.velocity.axes[1] = -1;
+	ml1.velocity.axes[0] = 0;
+	//down = left = right = 0;
+      }
+      else if(state ==4){
+	ml1.velocity.axes[0] = 1;
+	ml1.velocity.axes[1] = 0;
+	// down = up = left = 0;
+      }
+      state_changed = 0;
+      state = 0;
+    }
+    
+
     drawString5x7(0,0, "Score: ", COLOR_ORANGE, bgColor);
     drawString5x7(40,0,currScore, COLOR_ORANGE, bgColor);
     movLayerDraw(&ml0, &layer0);
-  }
+    }
+  
 }
 
 /** Watchdog timer interrupt handler. 15 interrupts/sec */
@@ -199,11 +284,15 @@ void wdt_c_handler()
   static short count = 0;
   P1OUT |= GREEN_LED;		      /**< Green LED on when cpu on */
   count ++;
+  state = p2sw_read();
   if (count == 15) {
     mlAdvance(&ml0, &fieldFence);
-    if (p2sw_read())
-      redrawScreen = 1;
+    buzzer_set_period(0);
+    state = 0;
+   
+    redrawScreen = 1;
     count = 0;
-  } 
+  }
   P1OUT &= ~GREEN_LED;		    /**< Green LED off when cpu off */
 }
+
