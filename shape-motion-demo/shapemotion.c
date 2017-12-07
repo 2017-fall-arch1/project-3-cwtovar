@@ -27,7 +27,7 @@ AbRect rect10 = {abRectGetBounds, abRectCheck, {10,4}}; /**< 10x10 rectangle */
 AbRArrow rarrow = {abRArrowGetBounds, abRArrowCheck, 20};
 char scored = 0;
 char bounce = 0;
-char state = 0;
+int state = 0;
 char state_changed =0;
 
 
@@ -142,7 +142,7 @@ Region fence = {{10,30}, {SHORT_EDGE_PIXELS-10, LONG_EDGE_PIXELS-10}}; /**< Crea
  *  \param ml The moving shape to be advanced
  *  \param fence The region which will serve as a boundary for ml
  */
-void mlAdvance(MovLayer *ml, Region *fence)
+void mlAdvance(MovLayer *ml, Region *fence, Region *player)
 {
   Vec2 newPos;
   u_char axis;
@@ -157,12 +157,15 @@ void mlAdvance(MovLayer *ml, Region *fence)
 	scored=1;
 	newPos.axes[axis] += (2*velocity);
       }	/**< if outside of fence */
-      if(abRectCheck(&(ml->layer->abShape), &(layer1.pos),
-		      &ml->layer->pos) && axis ==1){
-	//  bounce = 1;
+      if ((shapeBoundary.topLeft.axes[axis] < player->topLeft.axes[axis]) &&
+	  (shapeBoundary.botRight.axes[axis] > player->botRight.axes[axis]) ) {
 	int velocity = ml->velocity.axes[axis] = -ml->velocity.axes[axis];
+	bounce=1;
+	
 	newPos.axes[axis] += (2*velocity);
-      }     
+      }
+   
+           
       
     } /**< for axis */
     ml->layer->posNext = newPos;
@@ -197,6 +200,7 @@ u_int bgColor = COLOR_BLUE;     /**< The background color */
 int redrawScreen = 1;           /**< Boolean for whether screen needs to be redrawn */
 
 Region fieldFence;		/**< fence around playing field  */
+Region player;
 
 
 /** Initializes everything, enables interrupts and green LED, 
@@ -221,6 +225,7 @@ void main()
 
 
   layerGetBounds(&fieldLayer, &fieldFence);
+  layerGetBounds(&layer1, &player); //Assign player rectangle region to rectangle
 
 
   enableWDTInterrupts();      /**< enable periodic interrupt */
@@ -237,39 +242,19 @@ void main()
     if (scored){
       currScore[0]++;
       scored=0;
-      // buzzer_set_period(7617);
+      buzzer_set_period(7617);
     }
+          
     if(bounce){
       currScore[0]--;
       bounce = 0;
-      // buzzer_set_period(5210);
+       buzzer_set_period(5210);
     }
-    if(state_changed){
-      if(state== 1){
-	ml1.velocity.axes[0] = -1;
-	ml1.velocity.axes[1] = 0;
-	//down = up = right = 0;
-	
-      }
-      else if(state == 2){
-	ml1.velocity.axes[1] = 1;
-	ml1.velocity.axes[0] = 0;
-	//left = up = right = 0;
-      }
-      else if(state ==3){
-	ml1.velocity.axes[1] = -1;
-	ml1.velocity.axes[0] = 0;
-	//down = left = right = 0;
-      }
-      else if(state ==4){
-	ml1.velocity.axes[0] = 1;
-	ml1.velocity.axes[1] = 0;
-	// down = up = left = 0;
-      }
-      state_changed = 0;
-      state = 0;
+    if(currScore[0] == '?'){
+      drawString5x7(0,0, "You Lose!", COLOR_RED,bgColor);
+
+      main();
     }
-    
 
     drawString5x7(0,0, "Score: ", COLOR_ORANGE, bgColor);
     drawString5x7(40,0,currScore, COLOR_ORANGE, bgColor);
@@ -284,14 +269,47 @@ void wdt_c_handler()
   static short count = 0;
   P1OUT |= GREEN_LED;		      /**< Green LED on when cpu on */
   count ++;
-  state = p2sw_read();
-  if (count == 15) {
-    mlAdvance(&ml0, &fieldFence);
+ 
+  if(count == 15){
+    state = p2sw_read();
+    char bits[5];
+    mlAdvance(&ml0, &fieldFence, &player);
+    layerGetBounds(&layer1, &player);
+    for(int i = 0; i<4; i++){
+      bits[i] = (state & (1<<i)) ? 0: 1;
+    }
     buzzer_set_period(0);
-    state = 0;
-   
-    redrawScreen = 1;
-    count = 0;
+    bits[4]=0;
+    if(state){
+      ml1.velocity.axes[0] = 0;
+      ml1.velocity.axes[1] = 0;
+    }
+    
+    if(bits[0]){
+      ml1.velocity.axes[0] = -3;
+      ml1.velocity.axes[1] = 0;
+      //down = up = right = 0;
+      
+    }
+    else if(bits[1]){
+      ml1.velocity.axes[1] = 3;
+      ml1.velocity.axes[0] = 0;
+      //left = up = right = 0;
+    }
+    else if(bits[2]){
+      ml1.velocity.axes[1] = -3;
+	ml1.velocity.axes[0] = 0;
+	//down = left = right = 0;
+    }
+    else if(bits[3]){
+      ml1.velocity.axes[0] = 3;
+      ml1.velocity.axes[1] = 0;
+      // down = up = left = 0;
+    }
+	//	 mlAdvance(&ml0, &fieldFence, &player);
+	state = 0;
+	redrawScreen = 1;
+	count =0;
   }
   P1OUT &= ~GREEN_LED;		    /**< Green LED off when cpu off */
 }
