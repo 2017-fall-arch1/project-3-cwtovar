@@ -60,10 +60,7 @@ Layer layer3 = {		/**< Layer with an orange circle */
   {0,0}, {0,0},				    /* last & next pos */
   COLOR_VIOLET,
   &layer4,
-};
-
-
-Layer layer1 = {		/**< Layer with a red square */
+ layer1 = {		/**< Layer with a red square */
   (AbShape *)&rect10,
   {screenWidth/2, screenHeight-17}, /**< center */
   {0,0}, {0,0},				    /* last & next pos */
@@ -280,7 +277,7 @@ void wdt_c_handler()
     }
     buzzer_set_period(0);
     bits[4]=0;
-    if(state){
+    if(checkButton){
       ml1.velocity.axes[0] = 0;
       ml1.velocity.axes[1] = 0;
     }
